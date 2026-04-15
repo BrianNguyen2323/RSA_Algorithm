@@ -3,6 +3,11 @@
 .global calcTotient
 .global eCheck
 
+# ---- Function Author: Brian Nguyen ----
+.global cpubexp
+.global cprivexp
+# ---------------------------------------
+
 .text
 gcd:
 	gcd_loop:
@@ -83,8 +88,74 @@ eCheck:
 	MOV r0, #1
 	BX lr
 
+// Brian - edited invalid to retore the stack
 invalid:
 	MOV r0, #0
+    LDR lr, [sp]
+    LDR r4, [sp, #4]
+    LDR r5, [sp, #8]
+    ADD sp, sp, #12
 	BX lr
 
-.data
+/*
+* Instructions detailed for a cpubexp function so what I'm thinking for structure:
+* main.s will display options and if generate keys option is selected
+* then main will prompt for p and q integers.
+* A loop will run BL to a check for each p and q until a valid p and q are stored
+* 
+* main.s will have p and q stored in registers which will then BL to the calcTotient
+* Then run a loop until a valid e value is entered from the user, BL to cpubexp passing two parameters: e and totient
+*
+* cpubexp will perform the two checks and final check will call to the gcd function 
+*/
+#
+# Function Name:    cpubexp
+# Author:           Brian Nguyen
+# Purpose:          Validates a candidate public key exponent e against three condition checks
+#                   conditions: e > 1, e < phi_n, and gcd(e, phi_n) == 1
+# Input:            public key exponent candidate (e) and totient phi_n = (p-1)(q-1)
+# Output:           boolean return if public key exponent (e) is valid. 1 is valid, 0 is invalid
+#
+
+cpubexp: 
+
+    SUB sp, sp, #12
+    STR lr, [sp]
+    STR r4, [sp, #4]
+    STR r5, [sp, #8]
+
+    MOV r4, r0    // e input from user
+    MOV r5, r1    // totient
+
+    # check if e is a positive integer
+    CMP r4, #1
+    BLE invalid    // e must be > 1
+
+    # check if e < totient
+    CMP r4, r5
+    BGE invalid    // branch to invalid if e >= phi_n (totient)
+
+    # gcd check
+    MOV r0, r4
+    MOV r1, r5
+    BL gcd
+    CMP r0, #1
+    BEQ valid    // gcd returns 1 which means co-prime
+    B invalid    // anything else, e fails
+
+
+#
+# Function Name:    valid
+# Author:           Brian Nguyen
+# Purpose:          returns to main a valid pass for e
+# 
+valid:
+    MOV r0, #1
+    LDR lr, [sp]
+    LDR r4, [sp, #4]
+    LDR r5, [sp, #8]
+    ADD sp, sp, #12
+    BX lr
+
+    
+// removed .data line since it is not used in rsa_lib.s
