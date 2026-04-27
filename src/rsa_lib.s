@@ -55,6 +55,9 @@ done_mod:
 	
 
 primeCheck:
+	SUB sp, sp, #4
+	STR lr, [sp]
+
 	CMP r0, #2
 	BLT not_prime
 
@@ -71,15 +74,20 @@ check_loop:
 	CMP r0, #0
 	BEQ not_prime
 
+	MOV r0, r3
 	ADD r1, r1, #1
 	B check_loop
 
 is_prime:
 	MOV r0, #1
+	LDR lr, [sp]
+	ADD sp, sp, #4
 	BX lr
 
 not_prime:
 	MOV r0, #0
+	LDR lr, [sp]
+	ADD sp, sp, #4
 	BX lr
 
 calcTotient:
