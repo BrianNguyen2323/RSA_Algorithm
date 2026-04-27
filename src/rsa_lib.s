@@ -8,7 +8,21 @@
 .global pow
 
 .text
+
+#
+# Function Name:    gcd
+# Author:           
+# Purpose:          Computes the greatest common divisor of two integers.
+#                   Used to verify that e and phi_n share no common factors (gcd == 1 means co-prime).
+# Input:            r0 = a (first integer)
+#                   r1 = b (second integer)
+# Output:           r0 = greatest common divisor of a and b
+#
 gcd:
+	# push the stack
+	SUB sp, sp, #4
+	STR lr, [sp]
+
 	gcd_loop:
 		CMP r1, #0
 		BEQ done_gcd
@@ -20,6 +34,10 @@ gcd:
 		B gcd_loop
 
 	done_gcd:
+		# pop the stack
+		LDR lr, [sp]
+		ADD sp, sp, #4
+
 		BX lr
 
 mod:
