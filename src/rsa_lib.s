@@ -3,11 +3,9 @@
 .global calcTotient
 .global eCheck
 
-# ---- Function Author: Brian Nguyen ----
 .global cpubexp
 .global cprivexp
 .global pow
-# ---------------------------------------
 
 .text
 gcd:
