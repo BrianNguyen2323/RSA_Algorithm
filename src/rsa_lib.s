@@ -1,4 +1,4 @@
-.global gcd
+﻿.global gcd
 .global primeCheck
 .global calcTotient
 .global eCheck
@@ -6,6 +6,7 @@
 # ---- Function Author: Brian Nguyen ----
 .global cpubexp
 .global cprivexp
+.global pow
 # ---------------------------------------
 
 .text
@@ -97,6 +98,59 @@ invalid:
     ADD sp, sp, #12
 	BX lr
 
+#
+# Function Name:    pow
+# Author:           Brian Nguyen
+# Purpose:          Performs modular exponentiation — computes base^exp mod n.
+#                   Used for encryption (c = m^e mod n) and decryption (m = c^d mod n).
+# Input:            r0 = base  (ASCII char value for encryption, cipher value for decryption)
+#                   r1 = exp   (public exponent e for encryption, private exponent d for decryption)
+#                   r2 = n     (modulus, computed as p * q during key generation)
+# Output:           r0 = result of base^exp mod n
+#                        (cipher value c when encrypting, plaintext ASCII value m when decrypting)
+#
+
+pow:
+	# Function Register Dictionary:
+	#	r4 - base (ASCII char value for encryption, cipher value for decryption)
+	#	r5 - modulus n (p * q)
+	#	r6 - loop counter (counts down from exponent to 0)
+
+	# push the stack
+    SUB sp, sp, #16
+    STR lr, [sp]
+    STR r4, [sp, #4]
+    STR r5, [sp, #8]
+    STR r6, [sp, #12]
+
+    MOV r4, r0	   //save base
+    MOV r5, r2     //save modulus n
+    MOV r6, r1     //loop counter = exponent
+    MOV r3, #1     //result = 1
+
+pow_loop:
+    CMP r6, #0
+    BEQ pow_done
+
+    MUL r0, r3, r4		//r0 = result * base
+    MOV r1, r5          //r1 = n
+    BL mod              //r0 = (result * base) mod n
+    MOV r3, r0          //update result
+
+    SUB r6, r6, #1
+    B pow_loop
+
+pow_done:
+    MOV r0, r3
+
+	# pop the stack
+    LDR lr, [sp]
+    LDR r4, [sp, #4]
+    LDR r5, [sp, #8]
+    LDR r6, [sp, #12]
+    ADD sp, sp, #16
+    BX lr
+
 /*
 * Instructions detailed for a cpubexp function so what I'm thinking for structure:
 * main.s will display options and if generate keys option is selected
@@ -118,7 +172,7 @@ invalid:
 #
 
 cpubexp: 
-
+	# push the stack
     SUB sp, sp, #12
     STR lr, [sp]
     STR r4, [sp, #4]
@@ -151,6 +205,8 @@ cpubexp:
 # 
 valid:
     MOV r0, #1
+
+	# pop the stack
     LDR lr, [sp]
     LDR r4, [sp, #4]
     LDR r5, [sp, #8]
