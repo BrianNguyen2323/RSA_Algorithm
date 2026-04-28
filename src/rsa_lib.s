@@ -55,6 +55,7 @@ done_mod:
 	
 
 primeCheck:
+	# push the stack
 	SUB sp, sp, #4
 	STR lr, [sp]
 
@@ -80,14 +81,20 @@ check_loop:
 
 is_prime:
 	MOV r0, #1
+
+	# pop the stack
 	LDR lr, [sp]
 	ADD sp, sp, #4
+	
 	BX lr
 
 not_prime:
 	MOV r0, #0
+
+	# pop the stack
 	LDR lr, [sp]
 	ADD sp, sp, #4
+
 	BX lr
 
 calcTotient:
