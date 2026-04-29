@@ -272,7 +272,7 @@ cprivexp:
 
 	MOV r4, r0       
 	MOV r5, r1        
-	MOV r6, #1        
+	MOV r6, #1        // start x variable at 1
 
 cprivexp_loop:
 	MUL r3, r6, r5    // r3 = x * phi_n
