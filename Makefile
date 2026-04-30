@@ -2,6 +2,8 @@
 # Makefile 
 # =============================================================================
 
+## Try different compilers for different machines 
+
 ifeq ($(shell command -v arm-linux-gnueabihf-gcc 2>/dev/null),)
     CC := gcc
 else
@@ -15,15 +17,13 @@ CFLAGS := -g -no-pie
 
 # ---- Files ----
 SRC_DIR := src
-TARGET  := main
+TARGET  := program
 OBJS    := $(SRC_DIR)/main.o $(SRC_DIR)/rsa_lib.o
 
-# ---- Rules ----
 .PHONY: all run clean info
 
 all: info $(TARGET)
 
-# Print which compiler we ended up using (helpful for debugging)
 info:
 	@echo "Using CC = $(CC)"
 

@@ -21,22 +21,6 @@
 .extern rsa_encrypt
 .extern rsa_decrypt
 
-@ ============================================================
-@ main
-@ Linear flow:
-@   1. Prompt for p, validate (prime, 2 <= p < 50), retry on fail
-@   2. Prompt for q, validate (prime, 2 <= q < 50, q != p)
-@   3. Compute n = p*q  and  phi = (p-1)(q-1)
-@   4. Prompt for e, validate via cpubexp, retry on fail
-@   5. Compute d via cprivexp
-@   6. Print public key (e, n) and private key (d, n)
-@   7. Prompt for plaintext message
-@   8. Encrypt char-by-char, write ints to encrypted.txt
-@   9. Print encrypted.txt contents to terminal
-@  10. Prompt: press 'd' to decrypt
-@  11. Read encrypted.txt, decrypt each int, write to plaintext.txt
-@  12. Print plaintext to terminal, exit
-@ ============================================================
 main:
     # Push stack 32 — save lr + r4-r9 (7 words; pad to 8 for 8-byte align)
     SUB  sp, sp, #32
@@ -338,9 +322,6 @@ wait_d:
     LDR  r0, =prompt_decrypt
     BL   printf
 
-    @ scanf(" %c", &var_choice_c)
-    @ The leading space in " %c" skips whitespace (including
-    @ the newline left in the buffer from previous scanf calls).
     LDR  r0, =fmt_c_in
     LDR  r1, =var_choice_c
     BL   scanf
@@ -463,7 +444,7 @@ prompt_p:        .asciz "Enter prime p (2-50): "
 prompt_q:        .asciz "Enter prime q (2-50 -- BUT NOT SAME AS P): "
 prompt_e:        .asciz "Enter public exponent e: "
 prompt_msg:      .asciz "Enter message to encrypt: "
-prompt_decrypt:  .asciz "Press 'd' then Enter to decrypt: "
+prompt_decrypt:  .asciz "Check encrypted.txt! -- now press 'd' and enter to decrypt: "
 
 @ --- Status messages ---
 msg_phi:         .asciz "  phi(n) = %d  (e must be co-prime to phi, 1 < e < phi)\n"
