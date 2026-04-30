@@ -1,16 +1,42 @@
-all: main
+# 
+# Makefile 
+# =============================================================================
 
-CC = gcc
-CFLAGS = -g
+ifeq ($(shell command -v arm-linux-gnueabihf-gcc 2>/dev/null),)
+    CC := gcc
+else
+    CC := arm-linux-gnueabihf-gcc
+endif
 
-SRC_DIR = src
-LIB = $(SRC_DIR)/rsa_lib.o
+# ---- Flags ----
+# -g       debug symbols
+# -no-pie  avoid PIE relocation issues with raw assembly symbols
+CFLAGS := -g -no-pie
 
-main: $(SRC_DIR)/main.o $(LIB)
-	$(CC) $(SRC_DIR)/main.o $(LIB) $(CFLAGS) -o main
+# ---- Files ----
+SRC_DIR := src
+TARGET  := main
+OBJS    := $(SRC_DIR)/main.o $(SRC_DIR)/rsa_lib.o
 
+# ---- Rules ----
+.PHONY: all run clean info
+
+all: info $(TARGET)
+
+# Print which compiler we ended up using (helpful for debugging)
+info:
+	@echo "Using CC = $(CC)"
+
+# Link main.o and rsa_lib.o into ./main
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+
+# Pattern rule: assemble any src/*.s into src/*.o
 $(SRC_DIR)/%.o: $(SRC_DIR)/%.s
 	$(CC) $(CFLAGS) -c $< -o $@
 
+run: $(TARGET)
+	./$(TARGET)
+
 clean:
-	rm -f $(SRC_DIR)/*.o main
+	rm -f $(SRC_DIR)/*.o $(TARGET) encrypted.txt plaintext.txt
