@@ -78,6 +78,10 @@ enter_q:
 	LDR r3, =n
 	STR r2, [r3]             // store n
 
+	// n must be > 127 so all standard ASCII characters (up to 126) satisfy m < n
+	CMP r2, #127
+	BLE n_too_small
+
 	// compute phi = (p-1)(q-1) via calcTotient
 	LDR r1, =p
 	LDR r0, [r1]             // r0 = p value
@@ -169,6 +173,15 @@ bad_e:
 	BL flush_input
 	B enter_e
 
+n_too_small:
+	// n = p*q is too small - RSA requires m < n for all message characters
+	// printable ASCII goes up to 126, so n must be > 127
+	LDR r0, =n_too_small_msg
+	LDR r1, =n
+	LDR r1, [r1]             // pass n value so user sees what it computed to
+	BL printf
+	B enter_p                // pick larger primes
+
 phi_too_small:
 	// phi <= 2 means no integer e can satisfy 1 < e < phi
 	// happens when p=2 and q=3 (phi=2) or p=q=2 (phi=1)
@@ -224,6 +237,8 @@ decrypt_option:
 	// print header - decrypted chars print inline after this
 	LDR r0, =decrypt_header_msg
 	BL printf
+	MOV r0, #0               // fflush(NULL) - flush all stdio buffers
+	BL fflush               // ensures header appears before raw SVC writes
 
 	// call decrypt(d, n) - returns 0 on success, -1 if file not found
 	LDR r0, =d
@@ -312,6 +327,7 @@ msg_privkey:  .asciz "  Private key (d, n) = (%d, %d)\n"
 
 msg_phi:           .asciz "  phi(n) = %d  (e must be co-prime to phi, 1 < e < phi)\n"
 
+n_too_small_msg:   .asciz "Error: n = p*q = %d is too small. Need n > 127 for ASCII. Choose larger primes.\n"
 notprime_msg:      .asciz "Not a valid prime in range [2,50). Try again.\n"
 invalid_e_msg:     .asciz "Error: e is invalid. Please re-enter e.\n"
 phi_too_small_msg: .asciz "Error: phi(n) is too small - no valid e can exist (try larger primes).\n"
