@@ -153,19 +153,19 @@ pow:
     STR r5, [sp, #8]
     STR r6, [sp, #12]
 
-    MOV r4, r0	   //save base
-    MOV r5, r2     //save modulus n
-    MOV r6, r1     //loop counter = exponent
-    MOV r3, #1     //result = 1
+    MOV r4, r0          // save base
+    MOV r5, r2          // save modulus n
+    MOV r6, r1          // loop counter = exponent
+    MOV r3, #1          // result = 1
 
 pow_loop:
     CMP r6, #0
     BEQ pow_done
 
-    MUL r0, r3, r4		//r0 = result * base
-    MOV r1, r5          //r1 = n
-    BL mod              //r0 = (result * base) mod n
-    MOV r3, r0          //update result
+    MUL r0, r3, r4      // r0 = result * base
+    MOV r1, r5          // r1 = n
+    BL mod              // r0 = (result * base) mod n
+    MOV r3, r0          // update result
 
     SUB r6, r6, #1
     B pow_loop
@@ -208,24 +208,24 @@ cpubexp:
     STR r4, [sp, #4]
     STR r5, [sp, #8]
 
-    MOV r4, r0    // e input from user
-    MOV r5, r1    // totient
+    MOV r4, r0          // e input from user
+    MOV r5, r1          // totient
 
     # check if e is a positive integer
     CMP r4, #1
-    BLE invalid    // e must be > 1
+    BLE invalid         // e must be > 1
 
     # check if e < totient
     CMP r4, r5
-    BGE invalid    // branch to invalid if e >= phi_n (totient)
+    BGE invalid         // branch to invalid if e >= phi_n (totient)
 
     # gcd check
     MOV r0, r4
     MOV r1, r5
     BL gcd
     CMP r0, #1
-    BEQ valid    // gcd returns 1 which means co-prime
-    B invalid    // anything else, e fails
+    BEQ valid           // gcd returns 1 which means co-prime
+    B invalid           // anything else, e fails
 
 
 #
@@ -272,32 +272,32 @@ cprivexp:
 
 	MOV r4, r0       
 	MOV r5, r1        
-	MOV r6, #1        // start x variable at 1
+	MOV r6, #1          // start x variable at 1
 
 cprivexp_loop:
-	MUL r3, r6, r5    // r3 = x * phi_n
-	ADD r3, r3, #1    // r3 = 1 + x * phi_n (numerator)
+	MUL r3, r6, r5      // r3 = x * phi_n
+	ADD r3, r3, #1      // r3 = 1 + x * phi_n (numerator)
 
-	MOV r0, r3        // dividend = numerator
-	MOV r1, r4        // divisor = e
-	BL mod            // r0 = numerator mod e
+	MOV r0, r3          // dividend = numerator
+	MOV r1, r4          // divisor = e
+	BL mod              // r0 = numerator mod e
 
-	CMP r0, #0		  // r0 should have the mod result 
-	BEQ found_d       // remainder is 0, numerator divisible by e
+	CMP r0, #0          // r0 should have the mod result
+	BEQ found_d         // remainder is 0, numerator divisible by e
 
-	ADD r6, r6, #1    // incrementing x by 1 if d (private expoenent) was not found
+	ADD r6, r6, #1      // incrementing x by 1 if d (private expoenent) was not found
 	B cprivexp_loop
 
 found_d:
 	# r3 still holds numerator (mod only touched r0 and r1)
 	# compute d = numerator / e via repeated subtraction
-	MOV r0, #0        // d = 0
+	MOV r0, #0          // d = 0
 
 div_loop:
-	CMP r3, r4        // while numerator (r3) >= e
+	CMP r3, r4          // while numerator (r3) >= e
 	BLT cprivexp_done
-	SUB r3, r3, r4    // numerator (r3) -= e
-	ADD r0, r0, #1    // d++, incrementing 1 to the result to show one successful division
+	SUB r3, r3, r4      // numerator (r3) -= e
+	ADD r0, r0, #1      // d++, incrementing 1 to the result to show one successful division
 	B div_loop
 
 cprivexp_done:
@@ -312,16 +312,15 @@ cprivexp_done:
 #
 # Function Name:    encrypt
 # Author:           Brian Nguyen
-# Purpose:          Prompts the user to enter a plaintext message (e.g. "Hello from TEAM x").
-#                   Reads the message and determines the ASCII value of each individual character.
-#                   Encrypts each character separately using the equation c = m^e mod n,
-#                   where m is the ASCII value of the character, e is the public key exponent,
-#                   and n is the modulus. Cipher values are written space-separated to
-#                   encrypted.txt. The file is opened before writing and closed when complete.
+# Purpose:          Encrypts a plaintext message character by character using the public key (e, n).
+#                   Determines the ASCII value of each character and applies c = m^e mod n.
+#                   Cipher values are written space-separated to encrypted.txt.
+#                   The file is opened before writing and closed when complete.
 # Prerequisite:     Keys must already be generated — n, e, and d must be computed and stored
 #                   before this function is called.
-# Input:            r0 = e  (public key exponent)
-#                   r1 = n  (modulus, p * q)
+# Input:            r0 = pointer to message buffer (read and passed in by main.s)
+#                   r1 = e  (public key exponent)
+#                   r2 = n  (modulus, p * q)
 # Output:           No return value. Space-separated cipher values written to encrypted.txt.
 #
 
@@ -341,65 +340,50 @@ encrypt:
 	STR r6, [sp, #12]
 	STR r8, [sp, #16]
 
-	MOV r4, r0		// save e
-	MOV r5, r1		// save n
+	MOV r8, r0          // save message buffer pointer
+	MOV r4, r1          // save e
+	MOV r5, r2          // save n
 
-	# print prompt to console
-	MOV r7, #4		// write syscall
-	MOV r0, #1		// stdout
-	LDR r1, =encrypt_prompt
-	MOV r2, #26		// prompt length
-	SVC #0
-
-	# read message from stdin into msg_buf
-	MOV r7, #3		// read syscall
-	MOV r0, #0		// stdin
-	LDR r1, =msg_buf
-	MOV r2, #256		// max bytes to read
-	SVC #0
-
-	# open encrypted.txt for writing (create if not exists, overwrite if exists)
-	MOV r7, #5		     // open syscall
+	// open encrypted.txt for writing (create if not exists, overwrite if exists)
+	MOV r7, #5          // open syscall
 	LDR r0, =enc_filename
-	MOV r1, #1		     // O_WRONLY - open for writing only
-	ADD r1, r1, #64	     // | O_CREAT  (0x40) - create the file if it doesn't exist
-	ADD r1, r1, #512	// | O_TRUNC  (0x200) - if file already exists, clear it and start with a blank file
-	MOV r2, #420	    // permissions 0644 - read/write permissions
+	MOV r1, #1          // O_WRONLY - open for writing only
+	ADD r1, r1, #64     // | O_CREAT  (0x40) - create the file if it doesn't exist
+	ADD r1, r1, #512    // | O_TRUNC  (0x200) - if file already exists, clear it and start with a blank file
+	MOV r2, #420        // permissions 0644 - read/write permissions
 	SVC #0
-	MOV r6, r0		// save file descriptor
-
-	LDR r8, =msg_buf	// r8 = pointer to start of message
+	MOV r6, r0          // save file descriptor
 
 encrypt_loop:
-	LDRB r0, [r8]		// load current character byte
+	LDRB r0, [r8]       // load current character byte
 
-	CMP r0, #10		// newline = end of message
+	CMP r0, #10         // newline = end of message
 	BEQ encrypt_close
-	CMP r0, #0		// null terminator = end of message
+	CMP r0, #0          // null terminator = end of message
 	BEQ encrypt_close
 
 	// compute c = m^e mod n
-	MOV r1, r4		// e
-	MOV r2, r5		// n
-	BL pow			// r0 = cipher value c
+	MOV r1, r4          // e
+	MOV r2, r5          // n
+	BL pow              // r0 = cipher value c
 
 	// write cipher value as decimal to encrypted.txt
-	MOV r1, r6		// pass file descriptor
-	BL write_num		// writes integer r0 to fd r1
+	MOV r1, r6          // pass file descriptor
+	BL write_num        // writes integer r0 to fd r1
 
 	// write a space separator between cipher values
-	MOV r7, #4		// write syscall
-	MOV r0, r6		// file descriptor
+	MOV r7, #4          // write syscall
+	MOV r0, r6          // file descriptor
 	LDR r1, =space_char
-	MOV r2, #1		// one byte
+	MOV r2, #1          // one byte
 	SVC #0
 
-	ADD r8, r8, #1		// advance pointer to next character
+	ADD r8, r8, #1      // advance pointer to next character
 	B encrypt_loop
 
 encrypt_close:
-	MOV r7, #6		// close syscall
-	MOV r0, r6		// file descriptor
+	MOV r7, #6          // close syscall
+	MOV r0, r6          // file descriptor
 	SVC #0
 
 	// pop the stack
@@ -426,18 +410,18 @@ write_num:
 	STR r4, [sp, #4]
 	STR r5, [sp, #8]
 
-	MOV r4, r1		// save file descriptor
+	MOV r4, r1          // save file descriptor
 	LDR r5, =num_buf
 
 	// place null at num_buf[4], then work right-to-left from num_buf[3]
 	ADD r3, r5, #4
 	MOV r1, #0
-	STRB r1, [r3]		// null terminator
-	SUB r3, r3, #1		// r3 points to ones digit position
+	STRB r1, [r3]       // null terminator
+	SUB r3, r3, #1      // r3 points to ones digit position
 
-	CMP r0, #0		// special case: value is zero
+	CMP r0, #0          // special case: value is zero
 	BNE wn_loop
-	MOV r1, #48		// ASCII '0'
+	MOV r1, #48         // ASCII '0'
 	STRB r1, [r3]
 	B wn_write
 
@@ -445,32 +429,32 @@ wn_loop:
 	CMP r0, #0
 	BEQ wn_write
 
-	MOV r2, #0		// quotient = 0
+	MOV r2, #0          // quotient = 0
 wn_div:
 	CMP r0, #10
 	BLT wn_div_done
-	SUB r0, r0, #10	// subtract 10 to find remainder
-	ADD r2, r2, #1		// count how many times 10 fits
+	SUB r0, r0, #10     // subtract 10 to find remainder
+	ADD r2, r2, #1      // count how many times 10 fits
 	B wn_div
 wn_div_done:
-	ADD r1, r0, #48		// remainder + '0' = digit character
-	STRB r1, [r3]		// store digit
-	SUB r3, r3, #1		// move pointer left for next digit
-	MOV r0, r2		// quotient becomes new number
+	ADD r1, r0, #48     // remainder + '0' = digit character
+	STRB r1, [r3]       // store digit
+	SUB r3, r3, #1      // move pointer left for next digit
+	MOV r0, r2          // quotient becomes new number
 	B wn_loop
 
 wn_write:
-	ADD r3, r3, #1		// r3 now points to the first digit
+	ADD r3, r3, #1      // r3 now points to the first digit
 
 	// length = (num_buf + 4) - r3
 	LDR r2, =num_buf
 	ADD r2, r2, #4
-	SUB r2, r2, r3		// r2 = length of digit string
+	SUB r2, r2, r3      // r2 = length of digit string
 
-	MOV r7, #4		// write syscall
-	MOV r0, r4		// file descriptor
-	MOV r1, r3		// pointer to digit string
-	SVC #0
+	MOV r7, #4          // write syscall
+	MOV r0, r4          // file descriptor
+	MOV r1, r3          // pointer to digit string
+	SVC #0              // hand off to ther kernel to write the data
 
 	LDR lr, [sp]
 	LDR r4, [sp, #4]
@@ -480,10 +464,8 @@ wn_write:
 
 
 .data
-encrypt_prompt:  .ascii "Enter message to encrypt: "
 enc_filename:    .asciz "encrypted.txt"
 space_char:      .ascii " "
 
 .bss
-msg_buf:         .space 256
-num_buf:         .space 5
+num_buf:         .space 5	//reserving 5 bytes of space for this address, write_num will build a digit string here while the program runs
