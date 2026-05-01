@@ -1,11 +1,11 @@
 ﻿.global gcd
 .global primeCheck
 .global calcTotient
-.global eCheck
 .global cpubexp
 .global cprivexp
 .global pow
 .global encrypt
+.global decrypt
 
 .text
 
@@ -70,7 +70,6 @@ check_loop:
 	BGT is_prime
 
 	MOV r3, r0
-	MOV r4, r1
 	BL mod
 	CMP r0, #0
 	BEQ not_prime
@@ -103,22 +102,6 @@ calcTotient:
 	MUL r0, r0, r1
 	BX LR
 
-eCheck:
-	CMP r0, #1
-	BLE invalid
-
-	CMP r0, r1
-	BGE invalid
-
-	push {r1, lr}
-	BL gcd
-	pop {r1, lr}
-
-	CMP r0, #1
-	BNE invalid
-
-	MOV r0, #1
-	BX lr
 
 invalid:
 	MOV r0, #0
@@ -197,7 +180,8 @@ pow_done:
 # Author:           Brian Nguyen
 # Purpose:          Validates a candidate public key exponent e against three condition checks
 #                   conditions: e > 1, e < phi_n, and gcd(e, phi_n) == 1
-# Input:            public key exponent candidate (e) and totient phi_n = (p-1)(q-1)
+# Input:            r0 = e     (public key exponent candidate)
+#                   r1 = phi_n (totient, (p-1)(q-1))
 # Output:           boolean return if public key exponent (e) is valid. 1 is valid, 0 is invalid
 #
 
@@ -454,7 +438,7 @@ wn_write:
 	MOV r7, #4          // write syscall
 	MOV r0, r4          // file descriptor
 	MOV r1, r3          // pointer to digit string
-	SVC #0              // hand off to ther kernel to write the data
+	SVC #0              // hand off to the kernel to write the data
 
 	LDR lr, [sp]
 	LDR r4, [sp, #4]
@@ -463,9 +447,151 @@ wn_write:
 	BX lr
 
 
+#
+# Function Name:    decrypt
+# Author:           Brian Nguyen
+# Purpose:          Opens encrypted.txt and reads space-separated cipher values.
+#                   Decrypts each value using the equation m = c^d mod n,
+#                   where c is the cipher value, d is the private key exponent,
+#                   and n is the modulus. Writes the recovered ASCII characters
+#                   to plaintext.txt. Both files are opened before processing
+#                   and closed when complete.
+# Prerequisite:     Keys must already be generated and encrypted.txt must exist.
+# Input:            r0 = d  (private key exponent)
+#                   r1 = n  (modulus, p * q)
+# Output:           No return value. Decrypted characters written to plaintext.txt.
+#
+
+decrypt:
+	# Function Register Dictionary:
+	#	r4 - d (private key exponent)
+	#	r5 - n (modulus)
+	#	r6 - file descriptor for encrypted.txt (read)
+	#	r8 - file descriptor for plaintext.txt (write)
+	#	r9 - current cipher value accumulator (built digit by digit from file)
+
+	# push the stack
+	SUB sp, sp, #24
+	STR lr, [sp]
+	STR r4, [sp, #4]
+	STR r5, [sp, #8]
+	STR r6, [sp, #12]
+	STR r8, [sp, #16]
+	STR r9, [sp, #20]
+
+	MOV r4, r0          // save d
+	MOV r5, r1          // save n
+
+	// open encrypted.txt for reading
+	MOV r7, #5          // open syscall
+	LDR r0, =enc_filename
+	MOV r1, #0          // O_RDONLY
+	MOV r2, #0          // no mode needed for read-only open
+	SVC #0
+	MOV r6, r0          // save encrypted.txt file descriptor
+
+	// open plaintext.txt for writing (create or overwrite)
+	MOV r7, #5          // open syscall
+	LDR r0, =plain_filename
+	MOV r1, #1          // O_WRONLY
+	ADD r1, r1, #64     // | O_CREAT  (0x40)
+	ADD r1, r1, #512    // | O_TRUNC  (0x200)
+	MOV r2, #420        // permissions 0644
+	SVC #0
+	MOV r8, r0          // save plaintext.txt file descriptor
+
+	MOV r9, #0          // cipher value accumulator = 0
+
+decrypt_read_loop:
+	// read one byte at a time from encrypted.txt
+	MOV r7, #3          // read syscall
+	MOV r0, r6          // encrypted.txt fd
+	LDR r1, =dec_buf    // single byte buffer
+	MOV r2, #1          // read 1 byte
+	SVC #0              // r0 = bytes read, 0 means EOF
+
+	CMP r0, #0          // check for end of file
+	BEQ decrypt_last    // handle the final number before closing
+
+	LDR r3, =dec_buf
+	LDRB r2, [r3]       // r2 = the byte just read from the file
+
+	CMP r2, #32         // space = separator between cipher values
+	BEQ decrypt_got_num
+	CMP r2, #10         // newline = also treat as separator
+	BEQ decrypt_got_num
+
+	// it's a digit — build the number: current = current * 10 + (digit - '0')
+	MOV r3, #10
+	MUL r3, r9, r3      // r3 = accumulator * 10
+	SUB r2, r2, #48     // r2 = digit value (ASCII digit - '0')
+	ADD r9, r3, r2      // accumulator = (accumulator * 10) + digit
+	B decrypt_read_loop
+
+decrypt_got_num:
+	CMP r9, #0          // skip if accumulator is 0 (consecutive spaces)
+	BEQ decrypt_read_loop
+
+	// compute m = c^d mod n
+	MOV r0, r9          // base = cipher value c
+	MOV r1, r4          // exp = d
+	MOV r2, r5          // mod = n
+	BL pow              // r0 = decrypted ASCII value m
+
+	// write the recovered character byte to plaintext.txt
+	LDR r3, =dec_buf
+	STRB r0, [r3]       // store character in buffer
+	MOV r7, #4          // write syscall
+	MOV r0, r8          // plaintext.txt fd
+	MOV r1, r3          // buffer address
+	MOV r2, #1          // 1 byte
+	SVC #0
+
+	MOV r9, #0          // reset accumulator for next cipher value
+	B decrypt_read_loop
+
+decrypt_last:
+	// handle the final cipher value if the file had no trailing space
+	CMP r9, #0
+	BEQ decrypt_close
+
+	MOV r0, r9
+	MOV r1, r4
+	MOV r2, r5
+	BL pow
+
+	LDR r3, =dec_buf
+	STRB r0, [r3]
+	MOV r7, #4
+	MOV r0, r8
+	MOV r1, r3
+	MOV r2, #1
+	SVC #0
+
+decrypt_close:
+	MOV r7, #6          // close syscall
+	MOV r0, r6          // close encrypted.txt
+	SVC #0
+	MOV r7, #6
+	MOV r0, r8          // close plaintext.txt
+	SVC #0
+
+	# pop the stack
+	LDR lr, [sp]
+	LDR r4, [sp, #4]
+	LDR r5, [sp, #8]
+	LDR r6, [sp, #12]
+	LDR r8, [sp, #16]
+	LDR r9, [sp, #20]
+	ADD sp, sp, #24
+	BX lr
+
+
 .data
 enc_filename:    .asciz "encrypted.txt"
+plain_filename:  .asciz "plaintext.txt"
 space_char:      .ascii " "
 
 .bss
-num_buf:         .space 5	//reserving 5 bytes of space for this address, write_num will build a digit string here while the program runs
+num_buf:         .space 5
+dec_buf:         .space 1

@@ -1,4 +1,4 @@
-.text
+﻿.text
 .global main
 main:
 	loop:
@@ -72,11 +72,12 @@ main:
 		LDR r1, =e
 		BL scanf
 
-		# Check e
-		LDR r2, =e
-		LDR r3, =phi
-		LDR r1, [r3]
-		BL eCheck
+		// check e against the totient using cpubexp
+		LDR r1, =e
+		LDR r0, [r1]		// r0 = e value
+		LDR r1, =phi
+		LDR r1, [r1]		// r1 = phi_n value
+		BL cpubexp
 		CMP r0, #0
 		BEQ invalid_e
 
