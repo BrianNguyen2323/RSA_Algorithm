@@ -1,9 +1,11 @@
-﻿.text
+.text
 .global main
 
 main:
 
-# Main menu loop — keeps running until user exits
+// ---------------------------------------------
+// Main menu loop - keeps running until user exits
+// ---------------------------------------------
 loop:
 	LDR r0, =menu
 	BL printf
@@ -11,6 +13,8 @@ loop:
 	LDR r0, =fmt
 	LDR r1, =choice
 	BL scanf
+
+	BL flush_input           // clear leftover newline after every menu read
 
 	LDR r1, =choice
 	LDR r0, [r1]
@@ -24,12 +28,15 @@ loop:
 	CMP r0, #4
 	BEQ exit_program
 
-	// invalid menu choice — re-prompt
+	// invalid menu choice - re-prompt
 	LDR r0, =invalid_choice_msg
 	BL printf
 	B loop
 
-# Option 1 — Generate Keys
+
+// ---------------------------------------------
+// Option 1 - Generate Keys
+// ---------------------------------------------
 generate_keys:
 
 enter_p:
@@ -45,7 +52,7 @@ enter_p:
 	LDR r0, [r1]
 	BL primeCheck
 	CMP r0, #0
-	BEQ not_prime_p          // p not prime — re-enter p
+	BEQ bad_p
 
 enter_q:
 	LDR r0, =prompt_q
@@ -60,7 +67,7 @@ enter_q:
 	LDR r0, [r1]
 	BL primeCheck
 	CMP r0, #0
-	BEQ not_prime_q          // q not prime — re-enter q
+	BEQ bad_q
 
 	// compute n = p * q
 	LDR r1, =p
@@ -80,7 +87,18 @@ enter_q:
 	LDR r1, =phi
 	STR r0, [r1]             // store phi
 
+	// guard: phi must be > 2 - if phi <= 2 no valid e can exist
+	// example: p=2, q=3 gives phi=2 and 1 < e < 2 has no integer solution
+	CMP r0, #2
+	BLE phi_too_small
+
 enter_e:
+	// show phi so the user knows the valid range for e
+	LDR r0, =msg_phi
+	LDR r1, =phi
+	LDR r1, [r1]
+	BL printf
+
 	LDR r0, =prompt_e
 	BL printf
 
@@ -88,14 +106,14 @@ enter_e:
 	LDR r1, =e
 	BL scanf
 
-	// validate e — must satisfy 1 < e < phi and gcd(e, phi) = 1
+	// validate e - must satisfy 1 < e < phi and gcd(e, phi) = 1
 	LDR r1, =e
 	LDR r0, [r1]             // r0 = e value
 	LDR r1, =phi
 	LDR r1, [r1]             // r1 = phi value
 	BL cpubexp               // r0 = 1 if valid, 0 if invalid
 	CMP r0, #0
-	BEQ invalid_e            // e invalid — re-enter e
+	BEQ bad_e
 
 	// compute d = private key exponent via cprivexp(e, phi)
 	LDR r1, =e
@@ -111,36 +129,60 @@ enter_e:
 	LDR r1, =keys_ready
 	STR r0, [r1]
 
-	// display all generated key values to the user
+	// display keys generated confirmation
 	LDR r0, =keys_gen_msg
-	LDR r1, =n
-	LDR r1, [r1]             // r1 = n
-	LDR r2, =e
-	LDR r2, [r2]             // r2 = e
-	LDR r3, =d
-	LDR r3, [r3]             // r3 = d
+	BL printf
+
+	// display public key: (e, n)
+	LDR r0, =msg_pubkey
+	LDR r1, =e
+	LDR r1, [r1]             // r1 = e
+	LDR r2, =n
+	LDR r2, [r2]             // r2 = n
+	BL printf
+
+	// display private key: (d, n)
+	LDR r0, =msg_privkey
+	LDR r1, =d
+	LDR r1, [r1]             // r1 = d
+	LDR r2, =n
+	LDR r2, [r2]             // r2 = n
 	BL printf
 
 	B loop
 
-not_prime_p:
-	LDR r0, =notprime_p_msg
+bad_p:
+	LDR r0, =notprime_msg
 	BL printf
-	B enter_p                // loop back to re-enter p
+	BL flush_input           // drain leftover chars (e.g. from "1.5" input)
+	B enter_p
 
-not_prime_q:
-	LDR r0, =notprime_q_msg
+bad_q:
+	LDR r0, =notprime_msg
 	BL printf
-	B enter_q                // loop back to re-enter q
+	BL flush_input
+	B enter_q
 
-invalid_e:
+bad_e:
 	LDR r0, =invalid_e_msg
 	BL printf
-	B enter_e                // loop back to re-enter e
+	BL flush_input
+	B enter_e
 
-# Option 2 — Encrypt a Message
+phi_too_small:
+	// phi <= 2 means no integer e can satisfy 1 < e < phi
+	// happens when p=2 and q=3 (phi=2) or p=q=2 (phi=1)
+	// solution: choose larger primes
+	LDR r0, =phi_too_small_msg
+	BL printf
+	B enter_p                // restart key generation from p
+
+
+// ---------------------------------------------
+// Option 2 - Encrypt a Message
+// ---------------------------------------------
 encrypt_option:
-	// guard — keys must be generated first
+	// guard - keys must be generated first
 	LDR r1, =keys_ready
 	LDR r0, [r1]
 	CMP r0, #0
@@ -154,6 +196,8 @@ encrypt_option:
 	LDR r1, =msg_buf
 	BL scanf
 
+	BL flush_input           // clear trailing newline
+
 	// call encrypt(msg_buf pointer, e, n)
 	LDR r0, =msg_buf         // r0 = pointer to message buffer
 	LDR r1, =e
@@ -166,9 +210,12 @@ encrypt_option:
 	BL printf
 	B loop
 
-# Option 3 — Decrypt a Message
+
+// ---------------------------------------------
+// Option 3 - Decrypt a Message
+// ---------------------------------------------
 decrypt_option:
-	// guard — keys must be generated first
+	// guard - keys must be generated first
 	LDR r1, =keys_ready
 	LDR r0, [r1]
 	CMP r0, #0
@@ -185,24 +232,57 @@ decrypt_option:
 	BL printf
 	B loop
 
-# Error — no keys generated yet
+
+// ---------------------------------------------
+// Error - no keys generated yet
+// ---------------------------------------------
 no_keys_error:
 	LDR r0, =no_keys_msg
 	BL printf
 	B loop
 
-# Option 4 — Exit
+
+// ---------------------------------------------
+// Option 4 - Exit
+// ---------------------------------------------
 exit_program:
 	MOV r7, #1
 	SWI 0
 
+
+// ---------------------------------------------
+// flush_input - drains stdin up to and including the next newline
+// Fixes infinite loops caused by leftover characters in the buffer
+// (e.g. user enters "1.5" - scanf reads "1", leaves ".5\n" behind)
+// ---------------------------------------------
+flush_input:
+	SUB sp, sp, #4
+	STR lr, [sp]
+
+flush_loop:
+	BL getchar               // read one character from stdin
+	CMP r0, #10              // '\n' - end of the bad input
+	BEQ flush_done
+	CMP r0, #-1              // EOF
+	BEQ flush_done
+	B flush_loop
+
+flush_done:
+	LDR lr, [sp]
+	ADD sp, sp, #4
+	BX lr
+
+
+// ---------------------------------------------
+// Data section - all string literals
+// ---------------------------------------------
 .data
 
 menu: .asciz "\nRSA Menu:\n1. Generate Keys\n2. Encrypt a Message\n3. Decrypt a Message\n4. Exit\nChoice: "
 
 prompt_p: .asciz "Enter p (prime, < 50): "
 prompt_q: .asciz "Enter q (prime, < 50): "
-prompt_e: .asciz "Enter e (must satisfy: 1 < e < phi and gcd(e, phi) = 1): "
+prompt_e: .asciz "Enter e: "
 
 fmt:     .asciz "%d"
 fmt_str: .asciz " %255[^\n]"
@@ -211,15 +291,22 @@ encrypt_prompt:   .asciz "Enter message to encrypt: "
 encrypt_done_msg: .asciz "Encryption complete. Cipher values written to encrypted.txt\n"
 decrypt_done_msg: .asciz "Decryption complete. Plaintext written to plaintext.txt\n"
 
-keys_gen_msg: .asciz "Keys generated successfully!\n  n = %d\n  e = %d\n  d = %d\n"
+keys_gen_msg: .asciz "Keys generated successfully!\n"
+msg_pubkey:   .asciz "  Public key  (e, n) = (%d, %d)\n"
+msg_privkey:  .asciz "  Private key (d, n) = (%d, %d)\n"
 
-notprime_p_msg:   .asciz "Error: p is not prime. Please re-enter p.\n"
-notprime_q_msg:   .asciz "Error: q is not prime. Please re-enter q.\n"
-invalid_e_msg:    .asciz "Error: e is invalid. Please re-enter e.\n"
-no_keys_msg:      .asciz "Error: No keys found. Please generate keys first (Option 1).\n"
+msg_phi:           .asciz "  phi(n) = %d  (e must be co-prime to phi, 1 < e < phi)\n"
+
+notprime_msg:      .asciz "Not a valid prime in range [2,50). Try again.\n"
+invalid_e_msg:     .asciz "Error: e is invalid. Please re-enter e.\n"
+phi_too_small_msg: .asciz "Error: phi(n) is too small - no valid e can exist (try larger primes).\n"
+no_keys_msg:       .asciz "Error: No keys found. Please generate keys first (Option 1).\n"
 invalid_choice_msg: .asciz "Invalid choice. Please enter 1 - 4.\n"
 
-# BSS section — runtime variables (zeroed on start)
+
+// ---------------------------------------------
+// BSS section - runtime variables (zeroed on start)
+// ---------------------------------------------
 .bss
 p:          .skip 4
 q:          .skip 4
@@ -228,5 +315,5 @@ e:          .skip 4
 n:          .skip 4
 d:          .skip 4
 choice:     .skip 4
-keys_ready: .skip 4    // 0 = no keys, 1 = keys generated
+keys_ready: .skip 4
 msg_buf:    .skip 256

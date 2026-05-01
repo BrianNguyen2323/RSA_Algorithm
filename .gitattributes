@@ -1,0 +1,5 @@
+# Force LF line endings on all platforms for these file types
+*.s        text eol=lf
+*.h        text eol=lf
+Makefile   text eol=lf
+*.txt      text eol=lf
