@@ -490,6 +490,10 @@ decrypt:
 	SVC #0
 	MOV r6, r0          // save encrypted.txt file descriptor
 
+	// negative fd means encrypted.txt does not exist
+	CMP r6, #0
+	BMI decrypt_no_file
+
 	// open plaintext.txt for writing (create or overwrite)
 	MOV r7, #5          // open syscall
 	LDR r0, =plain_filename
@@ -547,6 +551,13 @@ decrypt_got_num:
 	MOV r2, #1          // 1 byte
 	SVC #0
 
+	// also print decrypted character to console
+	MOV r7, #4          // write syscall
+	MOV r0, #1          // stdout fd
+	MOV r1, r3          // dec_buf still holds the character
+	MOV r2, #1          // 1 byte
+	SVC #0
+
 	MOV r9, #0          // reset accumulator for next cipher value
 	B decrypt_read_loop
 
@@ -568,6 +579,25 @@ decrypt_last:
 	MOV r2, #1
 	SVC #0
 
+	// also print to console
+	MOV r7, #4          // write syscall
+	MOV r0, #1          // stdout fd
+	MOV r1, r3          // dec_buf still holds the character
+	MOV r2, #1          // 1 byte
+	SVC #0
+
+decrypt_no_file:
+	// encrypted.txt could not be opened - clean up stack and return error
+	LDR lr, [sp]
+	LDR r4, [sp, #4]
+	LDR r5, [sp, #8]
+	LDR r6, [sp, #12]
+	LDR r8, [sp, #16]
+	LDR r9, [sp, #20]
+	ADD sp, sp, #24
+	MOV r0, #-1         // error: file not found
+	BX lr
+
 decrypt_close:
 	MOV r7, #6          // close syscall
 	MOV r0, r6          // close encrypted.txt
@@ -584,6 +614,7 @@ decrypt_close:
 	LDR r8, [sp, #16]
 	LDR r9, [sp, #20]
 	ADD sp, sp, #24
+	MOV r0, #0          // success return value
 	BX lr
 
 

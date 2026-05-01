@@ -1,4 +1,4 @@
-.text
+﻿.text
 .global main
 
 main:
@@ -221,14 +221,27 @@ decrypt_option:
 	CMP r0, #0
 	BEQ no_keys_error
 
-	// call decrypt(d, n)
+	// print header - decrypted chars print inline after this
+	LDR r0, =decrypt_header_msg
+	BL printf
+
+	// call decrypt(d, n) - returns 0 on success, -1 if file not found
 	LDR r0, =d
 	LDR r0, [r0]             // r0 = d value
 	LDR r1, =n
 	LDR r1, [r1]             // r1 = n value
 	BL decrypt
 
+	// check return: negative = encrypted.txt not found
+	CMP r0, #0
+	BMI no_encrypted_error
+
 	LDR r0, =decrypt_done_msg
+	BL printf
+	B loop
+
+no_encrypted_error:
+	LDR r0, =no_encrypted_msg
 	BL printf
 	B loop
 
@@ -287,9 +300,11 @@ prompt_e: .asciz "Enter e: "
 fmt:     .asciz "%d"
 fmt_str: .asciz " %255[^\n]"
 
+decrypt_header_msg: .asciz "Decrypted message: "
+no_encrypted_msg:   .asciz "Error: encrypted.txt not found. Please encrypt a message first.\n"
 encrypt_prompt:   .asciz "Enter message to encrypt: "
 encrypt_done_msg: .asciz "Encryption complete. Cipher values written to encrypted.txt\n"
-decrypt_done_msg: .asciz "Decryption complete. Plaintext written to plaintext.txt\n"
+decrypt_done_msg: .asciz "\nDecryption complete. Plaintext written to plaintext.txt\n"
 
 keys_gen_msg: .asciz "Keys generated successfully!\n"
 msg_pubkey:   .asciz "  Public key  (e, n) = (%d, %d)\n"
