@@ -180,6 +180,7 @@ n_too_small:
 	LDR r1, =n
 	LDR r1, [r1]             // pass n value so user sees what it computed to
 	BL printf
+	BL flush_input           // drain any leftover chars (e.g. ".5\n" from fractional input)
 	B enter_p                // pick larger primes
 
 phi_too_small:
@@ -188,6 +189,7 @@ phi_too_small:
 	// solution: choose larger primes
 	LDR r0, =phi_too_small_msg
 	BL printf
+	BL flush_input           // drain any leftover chars before re-prompting
 	B enter_p                // restart key generation from p
 
 
