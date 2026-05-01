@@ -46,6 +46,7 @@ enter_p:
 	LDR r0, =fmt
 	LDR r1, =p
 	BL scanf
+	BL flush_input           // drain leftover chars immediately (e.g. from fractional input)
 
 	// check if p is prime
 	LDR r1, =p
@@ -61,6 +62,7 @@ enter_q:
 	LDR r0, =fmt
 	LDR r1, =q
 	BL scanf
+	BL flush_input           // drain leftover chars immediately
 
 	// check if q is prime
 	LDR r1, =q
@@ -109,6 +111,7 @@ enter_e:
 	LDR r0, =fmt
 	LDR r1, =e
 	BL scanf
+	BL flush_input           // drain leftover chars immediately
 
 	// validate e - must satisfy 1 < e < phi and gcd(e, phi) = 1
 	LDR r1, =e
@@ -158,19 +161,16 @@ enter_e:
 bad_p:
 	LDR r0, =notprime_msg
 	BL printf
-	BL flush_input           // drain leftover chars (e.g. from "1.5" input)
 	B enter_p
 
 bad_q:
 	LDR r0, =notprime_msg
 	BL printf
-	BL flush_input
 	B enter_q
 
 bad_e:
 	LDR r0, =invalid_e_msg
 	BL printf
-	BL flush_input
 	B enter_e
 
 n_too_small:
