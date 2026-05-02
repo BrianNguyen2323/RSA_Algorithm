@@ -1,4 +1,25 @@
-﻿.text
+﻿#
+# File:         main.s
+# Author:       Brian Nguyen and Ryan Rossman
+# Purpose:      Frontend user interface for the RSA Algorithm program.
+#               Displays a menu loop and handles all user input and validation.
+#               Calls library functions in rsa_lib.s and passes computed values
+#               between menu options.
+# Dependencies:   rsa_lib.s (primeCheck, calcTotient, cpubexp, cprivexp, encrypt, decrypt)
+# Menu Options:
+#               1 - Generate Keys    prompts for p, q, e; computes n, phi, d
+#               2 - Encrypt Message  reads plaintext from user; calls encrypt()
+#               3 - Decrypt Message  calls decrypt(); prints result to console
+#               4 - Exit             terminates the program
+# Constraints:
+#               p and q must be prime integers in range [2, 49]
+#               n = p * q must be > 127 (required for correct ASCII encryption)
+#               phi(n) must be > 2 (otherwise no valid e can exist)
+#               e must satisfy: e > 1, e < phi(n), and gcd(e, phi(n)) = 1
+#               message buffer is limited to 255 characters
+#
+
+.text
 .global main
 
 main:

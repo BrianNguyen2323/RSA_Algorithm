@@ -1,8 +1,23 @@
-# 
-# Makefile 
-# =============================================================================
+#
+# File:         Makefile
+# Author:       Brian Nguyen and Ryan Rossman
+# Purpose:      Builds the RSA Algorithm project by assembling src/main.s and
+#               src/rsa_lib.s into object files and linking them into a single
+#               executable called 'program'. Automatically strips UTF-8 BOM and
+#               Windows carriage returns from .s files before assembling so the
+#               project builds cleanly on Linux after editing on Windows.
+# Targets:
+#               all   - default target; assembles, links, and produces ./program
+#               run   - builds then immediately runs ./program
+#               clean - removes object files, the executable, and output txt files
+#               info  - prints the compiler being used
+# Usage:
+#               make          (build)
+#               make run      (build and run)
+#               make clean    (remove build artifacts)
+#
 
-## Try different compilers for different machines 
+## Try different compilers for different machines
 
 ifeq ($(shell command -v arm-linux-gnueabihf-gcc 2>/dev/null),)
     CC := gcc
