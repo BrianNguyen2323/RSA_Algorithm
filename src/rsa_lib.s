@@ -11,7 +11,7 @@
 
 #
 # Function Name:    gcd
-# Author:           
+# Author:           Brian Nguyen
 # Purpose:          Computes the greatest common divisor of two integers.
 #                   Used to verify that e and phi_n share no common factors (gcd == 1 means co-prime).
 # Input:            r0 = a (first integer)
@@ -40,6 +40,15 @@ gcd:
 
 		BX lr
 
+#
+# Function Name:    mod
+# Author:           Brian Nguyen
+# Purpose:          Computes the remainder of integer division using repeated subtraction.
+#                   Used internally by gcd, primeCheck, pow, cprivexp, and decrypt.
+# Input:            r0 = dividend
+#                   r1 = divisor
+# Output:           r0 = remainder (r0 mod r1)
+#
 mod:
 	CMP r1, #0
 	BEQ done_mod
@@ -54,6 +63,14 @@ done_mod:
 	BX lr
 	
 
+#
+# Function Name:    primeCheck
+# Author:           Brian Nguyen
+# Purpose:          Tests whether a given integer is prime using trial division
+#                   up to sqrt(n). Returns 1 if prime, 0 if not.
+# Input:            r0 = candidate integer to test
+# Output:           r0 = 1 if prime, 0 if not prime
+#
 primeCheck:
 	# push the stack
 	SUB sp, sp, #4
@@ -96,6 +113,15 @@ not_prime:
 
 	BX lr
 
+#
+# Function Name:    calcTotient
+# Author:           Brian Nguyen
+# Purpose:          Computes Euler's totient phi(n) = (p-1)(q-1).
+#                   Used during key generation to determine the valid range for e.
+# Input:            r0 = p (first prime)
+#                   r1 = q (second prime)
+# Output:           r0 = phi(n) = (p-1)(q-1)
+#
 calcTotient:
 	SUB r0, r0, #1
 	SUB r1, r1, #1
@@ -232,7 +258,7 @@ valid:
 
 #
 # Function Name:    cprivexp
-# Author:           Brian Nguyen
+# Author:           Brian Nguyen and Ryan Rossman
 # Purpose:          Calculates the private key exponent d such that de ≡ 1 (mod Φ(n)).
 #                   Iterates x = 1, 2, 3, ... computing (1 + x * Φ(n)) until the result
 #                   is evenly divisible by e, then returns d = (1 + x * Φ(n)) / e.
@@ -269,7 +295,9 @@ cprivexp_loop:
 	CMP r0, #0          // r0 should have the mod result
 	BEQ found_d         // remainder is 0, numerator divisible by e
 
-	ADD r6, r6, #1      // incrementing x by 1 if d (private expoenent) was not found
+	ADD r6, r6, #1      // incrementing x by 1 if d (private exponent) was not found
+	CMP r6, #1000       // safety guard - bail out if no d found within 1000 iterations
+	BGT cprivexp_fail
 	B cprivexp_loop
 
 found_d:
@@ -291,6 +319,16 @@ cprivexp_done:
 	LDR r5, [sp, #8]
 	LDR r6, [sp, #12]
 	ADD sp, sp, #16
+	BX lr
+
+cprivexp_fail:
+	// no valid d found within iteration limit - return 0 to signal failure
+	LDR lr, [sp]
+	LDR r4, [sp, #4]
+	LDR r5, [sp, #8]
+	LDR r6, [sp, #12]
+	ADD sp, sp, #16
+	MOV r0, #0          // return 0 indicates failure
 	BX lr
 
 #
@@ -382,6 +420,7 @@ encrypt_close:
 
 #
 # Function Name:    write_num
+# Author:			Brian Nguyen
 # Purpose:          Converts integer r0 to a decimal string and writes it to file descriptor r1.
 #                   Builds the digit string right-to-left in num_buf then writes it in one syscall.
 # Input:            r0 = integer to write, r1 = file descriptor
